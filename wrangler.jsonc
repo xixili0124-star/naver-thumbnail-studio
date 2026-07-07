@@ -1,10 +1,7 @@
 {
-  // Cloudflare Workers 정적 사이트 배포 설정
-  // public/ 폴더의 파일만 사이트로 서빙됩니다 (.git, 설정파일 등은 제외).
+  // Cloudflare Pages 설정
+  // public/ 폴더를 사이트 루트로 배포합니다 (첫 주소에서 바로 열림).
   "name": "naver-thumbnail-studio",
-  "compatibility_date": "2025-06-01",
-  "workers_dev": true,
-  "assets": {
-    "directory": "./public"
-  }
+  "pages_build_output_dir": "./public",
+  "compatibility_date": "2025-06-01"
 }
