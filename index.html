@@ -169,6 +169,43 @@
       </div>
     </details>
 
+    <details>
+      <summary>🔲 테두리 (프레임)</summary>
+      <label>종류
+        <select id="borderType">
+          <option value="none" selected>없음</option>
+          <option value="solid">가장자리 실선</option>
+          <option value="inset">안쪽 여백선</option>
+          <option value="double">이중선</option>
+          <option value="dashed">점선</option>
+          <option value="corners">모서리 강조 (ㄱ자)</option>
+        </select>
+      </label>
+      <div class="row">
+        <label>색상 <input type="color" id="borderColor" value="#ffffff"></label>
+        <label>두께 <input type="number" id="borderWidth" value="12" min="1" max="80"></label>
+      </div>
+      <label>안쪽 여백 <span class="hint">(여백선/점선/모서리)</span>
+        <input type="range" id="borderInset" min="0" max="120" step="2" value="24">
+      </label>
+    </details>
+
+    <details>
+      <summary>⭐ 스타일 템플릿</summary>
+      <p class="hint" style="margin-bottom:8px">현재 꾸미기 설정(텍스트 내용 제외)을 저장해두고 나중에 한 번에 불러옵니다.</p>
+      <div class="row">
+        <label style="flex:2">이름 <input type="text" id="tplName" placeholder="예: 요리 블로그"></label>
+        <button id="tplSave" class="btn ghost small" style="flex:1;align-self:flex-end">저장</button>
+      </div>
+      <label>불러오기
+        <select id="tplList"><option value="">— 저장된 템플릿 —</option></select>
+      </label>
+      <div class="row">
+        <button id="tplApply" class="btn ghost small" style="flex:1">적용</button>
+        <button id="tplDelete" class="btn ghost small" style="flex:1">삭제</button>
+      </div>
+    </details>
+
     <details open>
       <summary>💾 내보내기</summary>
       <div class="row">

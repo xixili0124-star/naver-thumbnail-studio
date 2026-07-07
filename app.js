@@ -16,6 +16,7 @@ const settings = {
   tShadow: true, tStroke: false, tStrokeColor: "#000000",
   sFont: "Noto Sans KR", sSize: 30, sColor: "#f1f1f1",
   bText: "", bBg: "#03c75a", bColor: "#ffffff", bPos: "top-left", bSize: 26,
+  borderType: "none", borderColor: "#ffffff", borderWidth: 12, borderInset: 24,
   format: "jpeg", quality: 0.92, prefix: "thumb",
 };
 
@@ -152,6 +153,58 @@ function render(cv, item) {
     c.fillText(bText, bx + bw / 2, by + bh / 2 + fs * 0.05);
     c.restore();
   }
+
+  // 테두리(프레임)
+  drawBorder(c, W, H);
+}
+
+function drawBorder(c, W, H) {
+  const t = settings.borderType;
+  if (t === "none") return;
+  const bw = Math.max(1, settings.borderWidth);
+  c.save();
+  c.strokeStyle = settings.borderColor;
+
+  if (t === "solid") {
+    // 가장자리에 딱 붙는 실선
+    c.lineWidth = bw;
+    c.strokeRect(bw / 2, bw / 2, W - bw, H - bw);
+  } else if (t === "inset") {
+    // 안쪽으로 여백을 둔 얇은 선
+    const m = settings.borderInset;
+    c.lineWidth = bw;
+    c.strokeRect(m, m, W - m * 2, H - m * 2);
+  } else if (t === "double") {
+    // 이중선
+    c.lineWidth = bw;
+    c.strokeRect(bw / 2, bw / 2, W - bw, H - bw);
+    const gap = bw * 2.2;
+    c.lineWidth = Math.max(1, bw * 0.5);
+    c.strokeRect(gap, gap, W - gap * 2, H - gap * 2);
+  } else if (t === "corners") {
+    // 네 모서리 ㄱ자 강조
+    const m = settings.borderInset;
+    const len = Math.min(W, H) * 0.12;
+    c.lineWidth = bw;
+    c.lineCap = "square";
+    const corner = (x, y, dx, dy) => {
+      c.beginPath();
+      c.moveTo(x + dx * len, y);
+      c.lineTo(x, y);
+      c.lineTo(x, y + dy * len);
+      c.stroke();
+    };
+    corner(m, m, 1, 1);
+    corner(W - m, m, -1, 1);
+    corner(m, H - m, 1, -1);
+    corner(W - m, H - m, -1, -1);
+  } else if (t === "dashed") {
+    const m = settings.borderInset;
+    c.lineWidth = bw;
+    c.setLineDash([bw * 2.5, bw * 1.8]);
+    c.strokeRect(m, m, W - m * 2, H - m * 2);
+  }
+  c.restore();
 }
 
 function renderPreview() {
@@ -409,10 +462,103 @@ bind("#bBg", "bBg");
 bind("#bColor", "bColor");
 bind("#bPos", "bPos");
 bind("#bSize", "bSize", { number: true });
+bind("#borderType", "borderType");
+bind("#borderColor", "borderColor");
+bind("#borderWidth", "borderWidth", { number: true });
+bind("#borderInset", "borderInset", { number: true });
 bind("#format", "format");
 bind("#quality", "quality", { float: true });
 bind("#prefix", "prefix");
 
-// 폰트 로드 후 다시 그려서 미리보기에 반영
+// ---------- 설정 저장/복원 (localStorage) ----------
+const LS_SESSION = "ts_session_v1";
+const LS_TEMPLATES = "ts_templates_v1";
+
+// settings 값을 화면 컨트롤에 반영
+function syncControls() {
+  for (const [key, val] of Object.entries(settings)) {
+    const el = $(`#${key}`);
+    if (!el) continue;
+    if (el.type === "checkbox") el.checked = !!val;
+    else el.value = val;
+  }
+  // 캔버스 크기 프리셋 동기화
+  const presetEl = $("#preset");
+  const match = [...presetEl.options].find((o) => o.value === `${settings.w}x${settings.h}`);
+  presetEl.value = match ? match.value : "custom";
+  $("#customSize").hidden = presetEl.value !== "custom";
+  $("#w").value = settings.w;
+  $("#h").value = settings.h;
+}
+
+let persistTimer = null;
+function persist() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    try { localStorage.setItem(LS_SESSION, JSON.stringify(settings)); } catch (e) {}
+  }, 300);
+}
+
+function restoreSession() {
+  try {
+    const raw = localStorage.getItem(LS_SESSION);
+    if (!raw) return;
+    Object.assign(settings, JSON.parse(raw));
+    syncControls();
+  } catch (e) {}
+}
+
+// 설정이 바뀔 때마다 저장 (renderPreview 호출 지점에 훅)
+const _renderPreview = renderPreview;
+renderPreview = function () { _renderPreview(); persist(); };
+
+// ---------- 스타일 템플릿 ----------
+function loadTemplates() {
+  try { return JSON.parse(localStorage.getItem(LS_TEMPLATES)) || {}; }
+  catch (e) { return {}; }
+}
+function saveTemplates(obj) {
+  localStorage.setItem(LS_TEMPLATES, JSON.stringify(obj));
+}
+function refreshTemplateList() {
+  const sel = $("#tplList");
+  const names = Object.keys(loadTemplates());
+  sel.innerHTML = '<option value="">— 저장된 템플릿 —</option>' +
+    names.map((n) => `<option value="${n.replace(/"/g, "&quot;")}">${n}</option>`).join("");
+}
+
+$("#tplSave").onclick = () => {
+  const name = $("#tplName").value.trim();
+  if (!name) { $("#tplName").focus(); return; }
+  const tpls = loadTemplates();
+  tpls[name] = { ...settings };
+  saveTemplates(tpls);
+  refreshTemplateList();
+  $("#tplList").value = name;
+  $("#tplName").value = "";
+};
+
+$("#tplApply").onclick = () => {
+  const name = $("#tplList").value;
+  if (!name) return;
+  const tpl = loadTemplates()[name];
+  if (!tpl) return;
+  Object.assign(settings, tpl);
+  syncControls();
+  renderPreview();
+};
+
+$("#tplDelete").onclick = () => {
+  const name = $("#tplList").value;
+  if (!name) return;
+  const tpls = loadTemplates();
+  delete tpls[name];
+  saveTemplates(tpls);
+  refreshTemplateList();
+};
+
+// ---------- 초기화 ----------
+restoreSession();
+refreshTemplateList();
 ensureFonts().then(renderPreview);
 renderPreview();
