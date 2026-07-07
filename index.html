@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>썸네일 스튜디오 — 네이버 블로그 썸네일 일괄 제작</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=Gugi&family=Jua&family=Nanum+Gothic:wght@400;700;800&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@400;700;900&family=Noto+Serif+KR:wght@600;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>🖼️ 썸네일 스튜디오</h1>
+  <span class="sub">네이버 블로그 썸네일 일괄 제작</span>
+  <div class="header-actions">
+    <button id="exportOne" class="btn ghost" disabled>선택 이미지 저장</button>
+    <button id="exportAll" class="btn primary" disabled>전체 ZIP 다운로드</button>
+  </div>
+</header>
+
+<main>
+  <!-- 왼쪽: 업로드 + 이미지 목록 -->
+  <aside class="panel left">
+    <div id="dropzone" class="dropzone">
+      <p><strong>클릭</strong> 또는 이미지 <strong>드래그</strong>로 업로드</p>
+      <p class="hint">여러 장 한 번에 가능 (JPG/PNG/WebP)</p>
+      <input type="file" id="file" accept="image/*" multiple hidden>
+    </div>
+    <ul id="list" class="img-list"></ul>
+    <button id="clearAll" class="btn ghost small" hidden>목록 비우기</button>
+  </aside>
+
+  <!-- 가운데: 미리보기 -->
+  <section class="preview-area">
+    <div class="text-inputs" id="textInputs" hidden>
+      <label>제목 <span class="hint">(줄바꿈 가능)</span>
+        <textarea id="title" rows="2" placeholder="썸네일 제목 입력"></textarea>
+      </label>
+      <label>부제목
+        <input type="text" id="subtitle" placeholder="부제목 (선택)">
+      </label>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="canvas"></canvas>
+      <p id="emptyMsg" class="empty-msg">이미지를 업로드하면 미리보기가 표시됩니다</p>
+    </div>
+    <div class="canvas-tools" id="canvasTools" hidden>
+      <label>확대/축소 <input type="range" id="zoom" min="1" max="3" step="0.01" value="1"></label>
+      <button id="resetPos" class="btn ghost small">위치 초기화</button>
+      <span class="hint">💡 미리보기를 드래그하면 이미지 위치를 옮길 수 있어요</span>
+    </div>
+  </section>
+
+  <!-- 오른쪽: 스타일 설정 -->
+  <aside class="panel right">
+    <details open>
+      <summary>📐 캔버스 크기</summary>
+      <label>프리셋
+        <select id="preset">
+          <option value="800x800" selected>정방형 1:1 (800×800) — 네이버 대표이미지</option>
+          <option value="600x600">정방형 1:1 (600×600)</option>
+          <option value="1200x630">가로형 1.91:1 (1200×630) — 링크 공유용</option>
+          <option value="1280x720">가로형 16:9 (1280×720)</option>
+          <option value="900x1200">세로형 3:4 (900×1200)</option>
+          <option value="custom">직접 입력</option>
+        </select>
+      </label>
+      <div class="row" id="customSize" hidden>
+        <label>가로 <input type="number" id="w" value="800" min="100" max="4000"></label>
+        <label>세로 <input type="number" id="h" value="800" min="100" max="4000"></label>
+      </div>
+      <label>여백 배경색 <input type="color" id="bg" value="#222222"></label>
+    </details>
+
+    <details open>
+      <summary>🎨 오버레이 (배경 어둡게)</summary>
+      <label>종류
+        <select id="overlayType">
+          <option value="none">없음</option>
+          <option value="dim" selected>전체 어둡게</option>
+          <option value="gradBottom">아래쪽 그라데이션</option>
+          <option value="gradTop">위쪽 그라데이션</option>
+        </select>
+      </label>
+      <label>색상 <input type="color" id="overlayColor" value="#000000"></label>
+      <label>진하기 <input type="range" id="overlayOpacity" min="0" max="1" step="0.05" value="0.35"></label>
+    </details>
+
+    <details open>
+      <summary>✏️ 제목 스타일</summary>
+      <label>폰트
+        <select id="tFont">
+          <option value="Black Han Sans" selected>검은고딕 (Black Han Sans)</option>
+          <option value="Noto Sans KR">노토 산스 (Noto Sans KR)</option>
+          <option value="Noto Serif KR">노토 세리프 (명조)</option>
+          <option value="Jua">주아체</option>
+          <option value="Do Hyeon">도현체</option>
+          <option value="Gugi">구기체</option>
+          <option value="Nanum Gothic">나눔고딕</option>
+          <option value="Nanum Pen Script">나눔손글씨</option>
+        </select>
+      </label>
+      <div class="row">
+        <label>크기 <input type="number" id="tSize" value="64" min="10" max="300"></label>
+        <label>색상 <input type="color" id="tColor" value="#ffffff"></label>
+      </div>
+      <div class="row">
+        <label>정렬
+          <select id="tAlign">
+            <option value="left">왼쪽</option>
+            <option value="center" selected>가운데</option>
+            <option value="right">오른쪽</option>
+          </select>
+        </label>
+        <label>세로 위치
+          <select id="tVpos">
+            <option value="top">위</option>
+            <option value="middle" selected>중앙</option>
+            <option value="bottom">아래</option>
+          </select>
+        </label>
+      </div>
+      <label>세로 미세조정 <input type="range" id="tOffset" min="-300" max="300" step="2" value="0"></label>
+      <div class="row checks">
+        <label class="check"><input type="checkbox" id="tShadow" checked> 그림자</label>
+        <label class="check"><input type="checkbox" id="tStroke"> 외곽선</label>
+        <label>외곽선 색 <input type="color" id="tStrokeColor" value="#000000"></label>
+      </div>
+    </details>
+
+    <details>
+      <summary>📝 부제목 스타일</summary>
+      <label>폰트
+        <select id="sFont">
+          <option value="Noto Sans KR" selected>노토 산스 (Noto Sans KR)</option>
+          <option value="Black Han Sans">검은고딕</option>
+          <option value="Noto Serif KR">노토 세리프 (명조)</option>
+          <option value="Jua">주아체</option>
+          <option value="Do Hyeon">도현체</option>
+          <option value="Nanum Gothic">나눔고딕</option>
+          <option value="Nanum Pen Script">나눔손글씨</option>
+        </select>
+      </label>
+      <div class="row">
+        <label>크기 <input type="number" id="sSize" value="30" min="8" max="200"></label>
+        <label>색상 <input type="color" id="sColor" value="#f1f1f1"></label>
+      </div>
+    </details>
+
+    <details>
+      <summary>🏷️ 뱃지 (블로그 이름 등)</summary>
+      <label>문구 <input type="text" id="bText" placeholder="예: 우리집 밥상"></label>
+      <div class="row">
+        <label>배경색 <input type="color" id="bBg" value="#03c75a"></label>
+        <label>글자색 <input type="color" id="bColor" value="#ffffff"></label>
+      </div>
+      <div class="row">
+        <label>위치
+          <select id="bPos">
+            <option value="top-left" selected>왼쪽 위</option>
+            <option value="top-right">오른쪽 위</option>
+            <option value="bottom-left">왼쪽 아래</option>
+            <option value="bottom-right">오른쪽 아래</option>
+          </select>
+        </label>
+        <label>크기 <input type="number" id="bSize" value="26" min="10" max="100"></label>
+      </div>
+    </details>
+
+    <details open>
+      <summary>💾 내보내기</summary>
+      <div class="row">
+        <label>형식
+          <select id="format">
+            <option value="jpeg" selected>JPG</option>
+            <option value="png">PNG</option>
+            <option value="webp">WebP</option>
+          </select>
+        </label>
+        <label>품질 <input type="range" id="quality" min="0.5" max="1" step="0.01" value="0.92"></label>
+      </div>
+      <label>파일명 접두어 <input type="text" id="prefix" value="thumb"></label>
+    </details>
+  </aside>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
