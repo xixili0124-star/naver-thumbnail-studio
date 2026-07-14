@@ -11,7 +11,7 @@ const state = {
 const settings = {
   w: 800, h: 800, bg: "#222222",
   overlayType: "dim", overlayColor: "#000000", overlayOpacity: 0.35,
-  tFont: "Black Han Sans", tSize: 64, tColor: "#ffffff",
+  tFont: "Black Han Sans", tSize: 64, tColor: "#ffffff", tAutoFit: true,
   tAlign: "center", tVpos: "middle", tOffset: 0,
   tShadow: true, tStroke: false, tStrokeColor: "#000000",
   sFont: "Noto Sans KR", sSize: 30, sColor: "#f1f1f1",
@@ -76,13 +76,27 @@ function render(cv, item) {
   if (item) {
     const titleLines = (item.title || "").split("\n").filter((l) => l.trim() !== "");
     const sub = (item.subtitle || "").trim();
-    const tLH = settings.tSize * 1.25;
+    const pad = Math.round(W * 0.06);
+
+    // 가로폭 자동 크기: 가장 긴 줄이 캔버스 폭에 꽉 차도록 글자 크기 계산
+    let tSize = settings.tSize;
+    if (settings.tAutoFit && titleLines.length) {
+      const avail = W - pad * 2;
+      c.font = `100px "${settings.tFont}"`;
+      let best = Infinity;
+      for (const line of titleLines) {
+        const lw = c.measureText(line).width;
+        if (lw > 0) best = Math.min(best, (100 * avail) / lw);
+      }
+      if (isFinite(best)) tSize = Math.max(20, Math.min(best, H * 0.3));
+    }
+
+    const tLH = tSize * 1.25;
     const sLH = settings.sSize * 1.3;
-    const gap = titleLines.length && sub ? settings.tSize * 0.4 : 0;
+    const gap = titleLines.length && sub ? tSize * 0.4 : 0;
     const blockH = titleLines.length * tLH + gap + (sub ? sLH : 0);
 
     if (blockH > 0) {
-      const pad = Math.round(W * 0.06);
       let x, align = settings.tAlign;
       if (align === "left") x = pad;
       else if (align === "right") x = W - pad;
@@ -100,16 +114,16 @@ function render(cv, item) {
 
       if (settings.tShadow) {
         c.shadowColor = "rgba(0,0,0,0.55)";
-        c.shadowBlur = settings.tSize * 0.12;
-        c.shadowOffsetY = settings.tSize * 0.05;
+        c.shadowBlur = tSize * 0.12;
+        c.shadowOffsetY = tSize * 0.05;
       }
 
       // 제목
-      c.font = `${settings.tSize}px "${settings.tFont}"`;
+      c.font = `${tSize}px "${settings.tFont}"`;
       let y = yTop;
       for (const line of titleLines) {
         if (settings.tStroke) {
-          c.lineWidth = Math.max(2, settings.tSize * 0.08);
+          c.lineWidth = Math.max(2, tSize * 0.08);
           c.lineJoin = "round";
           c.strokeStyle = settings.tStrokeColor;
           c.strokeText(line, x, y);
@@ -480,6 +494,7 @@ bind("#overlayColor", "overlayColor");
 bind("#overlayOpacity", "overlayOpacity", { float: true });
 bind("#tFont", "tFont");
 bind("#tSize", "tSize", { number: true });
+bind("#tAutoFit", "tAutoFit", { check: true });
 bind("#tColor", "tColor");
 bind("#tAlign", "tAlign");
 bind("#tVpos", "tVpos");
