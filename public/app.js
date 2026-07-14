@@ -216,6 +216,7 @@ function renderPreview() {
   $("#textInputs").hidden = !item;
   $("#canvasTools").hidden = !item;
   $("#exportOne").disabled = !item;
+  $("#copyClip").disabled = !item;
   $("#exportAll").disabled = state.images.length === 0;
   $("#clearAll").hidden = state.images.length === 0;
   if (item) render(canvas, item);
@@ -321,6 +322,38 @@ $("#exportOne").onclick = async () => {
   await ensureFonts();
   const blob = await renderBlob(it);
   download(blob, fileNameFor(it, state.sel));
+};
+
+// 클립보드 복사 (블로그 에디터에 Ctrl+V로 바로 붙여넣기)
+// 클립보드 이미지는 브라우저가 PNG만 지원하므로 항상 PNG로 복사
+async function renderPngBlob(item) {
+  const cv = document.createElement("canvas");
+  cv.width = settings.w;
+  cv.height = settings.h;
+  render(cv, item);
+  return new Promise((res) => cv.toBlob(res, "image/png"));
+}
+
+$("#copyClip").onclick = async () => {
+  const it = selected();
+  if (!it) return;
+  const btn = $("#copyClip");
+  const orig = "📋 클립보드 복사";
+  try {
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      throw new Error("unsupported");
+    }
+    await ensureFonts();
+    // Safari 대응: ClipboardItem에 Promise를 직접 전달
+    await navigator.clipboard.write([
+      new ClipboardItem({ "image/png": renderPngBlob(it) }),
+    ]);
+    btn.textContent = "✅ 복사됨! 블로그에 Ctrl+V";
+  } catch (e) {
+    btn.textContent = "❌ 복사 실패";
+    alert("클립보드 복사에 실패했습니다.\n브라우저가 이미지 복사를 지원하지 않으면 '선택 이미지 저장'으로 파일을 받아서 올려주세요.");
+  }
+  setTimeout(() => { btn.textContent = orig; }, 2500);
 };
 
 $("#exportAll").onclick = async () => {
