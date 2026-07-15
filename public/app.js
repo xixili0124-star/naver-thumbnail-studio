@@ -9,7 +9,7 @@ const state = {
 };
 
 const settings = {
-  w: 800, h: 800, bg: "#222222",
+  w: 600, h: 600, bg: "#222222",
   // 이미지 보정
   adjBright: 100, adjContrast: 100, adjSat: 100,
   // 오버레이
@@ -596,8 +596,8 @@ $("#preset").onchange = (e) => {
     renderPreview();
   }
 };
-$("#w").oninput = (e) => { settings.w = Math.max(50, parseInt(e.target.value, 10) || 800); renderPreview(); };
-$("#h").oninput = (e) => { settings.h = Math.max(50, parseInt(e.target.value, 10) || 800); renderPreview(); };
+$("#w").oninput = (e) => { settings.w = Math.max(50, parseInt(e.target.value, 10) || 600); renderPreview(); };
+$("#h").oninput = (e) => { settings.h = Math.max(50, parseInt(e.target.value, 10) || 600); renderPreview(); };
 
 bind("#bg", "bg");
 bind("#adjBright", "adjBright", { number: true });
