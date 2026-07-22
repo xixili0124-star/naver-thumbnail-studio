@@ -351,6 +351,7 @@ function renderPreview() {
   $("#clearAll").hidden = state.images.length === 0;
   if (item) render(canvas, item, state.sel);
   persist();
+  scheduleHistory();
 }
 
 // ---------- 이미지 목록 ----------
@@ -813,6 +814,95 @@ $("#tplDelete").onclick = () => {
   saveTemplates(tpls);
   refreshTemplateList();
 };
+
+// ---------- 실행 취소 / 다시 실행 ----------
+// 스냅샷 = 스타일 설정 + 이미지별 텍스트/줌/위치 + 선택 상태
+// (이미지 추가/삭제 자체는 되돌리지 않음)
+const history = { stack: [], idx: -1, max: 60, applying: false, timer: null };
+
+function captureSnapshot() {
+  return JSON.stringify({
+    settings: { ...settings },
+    items: state.images.map((it) => ({
+      id: it.id, title: it.title, subtitle: it.subtitle,
+      zoom: it.zoom, offsetX: it.offsetX, offsetY: it.offsetY,
+    })),
+    sel: state.sel,
+  });
+}
+
+// 연속 조작(타이핑·슬라이더 드래그)은 350ms 묶어서 하나의 기록으로
+function scheduleHistory() {
+  if (history.applying) return;
+  clearTimeout(history.timer);
+  history.timer = setTimeout(() => {
+    const snap = captureSnapshot();
+    if (history.stack[history.idx] === snap) return;
+    history.stack.splice(history.idx + 1);
+    history.stack.push(snap);
+    if (history.stack.length > history.max) history.stack.shift();
+    history.idx = history.stack.length - 1;
+    updateUndoButtons();
+  }, 350);
+}
+
+function applySnapshot(snap) {
+  history.applying = true;
+  try {
+    const s = JSON.parse(snap);
+    Object.assign(settings, s.settings);
+    for (const si of s.items) {
+      const it = state.images.find((im) => im.id === si.id);
+      if (it) Object.assign(it, si);
+    }
+    state.sel = Math.min(s.sel, state.images.length - 1);
+    syncControls();
+    const it = selected();
+    $("#title").value = it ? it.title : "";
+    $("#subtitle").value = it ? it.subtitle : "";
+    $("#zoom").value = it ? it.zoom : 1;
+    renderList();
+    renderPreview();
+  } finally {
+    history.applying = false;
+  }
+}
+
+function undo() {
+  if (history.idx <= 0) return;
+  clearTimeout(history.timer);
+  history.idx--;
+  applySnapshot(history.stack[history.idx]);
+  updateUndoButtons();
+}
+
+function redo() {
+  if (history.idx >= history.stack.length - 1) return;
+  clearTimeout(history.timer);
+  history.idx++;
+  applySnapshot(history.stack[history.idx]);
+  updateUndoButtons();
+}
+
+function updateUndoButtons() {
+  $("#undoBtn").disabled = history.idx <= 0;
+  $("#redoBtn").disabled = history.idx >= history.stack.length - 1;
+}
+
+$("#undoBtn").onclick = undo;
+$("#redoBtn").onclick = redo;
+
+// Ctrl+Z / Ctrl+Y (텍스트 입력 중에는 브라우저 기본 동작 유지)
+document.addEventListener("keydown", (e) => {
+  const t = e.target;
+  const isTextInput = t.tagName === "TEXTAREA" ||
+    (t.tagName === "INPUT" && ["text", "number"].includes(t.type));
+  if (isTextInput) return;
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const k = e.key.toLowerCase();
+  if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); redo(); }
+});
 
 // ---------- 초기화 ----------
 restoreSession();
